@@ -4,8 +4,6 @@ library(policytree)
 library(DiagrammeR)
 
 data <- read_csv("https://raw.githubusercontent.com/grf-labs/grf/refs/heads/master/r-package/grf/vignettes/data/bruhn2016.csv")
-head(data)
-names(data)
 
 Y <- data$outcome.test.score
 W <- data$treatment
@@ -14,12 +12,10 @@ X <- data[-(1:3)]
 
 # it was a completely randomized trial with known propensity score w = .5
 cf <- grf::causal_forest(X, Y, W, W.hat = .5, clusters = school)
-average_treatment_effect(cf)
 
 ranked_vars <- order(variable_importance(cf), decreasing = T)
-colnames(X)[ranked_vars[1:5]]
 
-blp <- best_linear_projection(cf, X[ranked_vars])
+best_linear_projection(cf, X[ranked_vars])
 
 # policy tree
 samples.by.school <- split(seq_along(school), school)
@@ -30,8 +26,8 @@ not.missing <- which(complete.cases(X))
 train <- train[which(train %in% not.missing)]
 eval <- eval[which(eval %in% not.missing)]
 
-dr.scores <- get_scores(cf)
-ate <- average_treatment_effect(cf)
+dr.scores <- get_scores(cf) #individual treatment effects
+ate <- average_treatment_effect(cf) #average treatment effect
 cost <- ate[["estimate"]]
 dr.rewards <- cbind(control=-dr.scores, treat=dr.scores - cost)
 
@@ -49,12 +45,7 @@ treat.eval <- eval[pi.hat.eval == 1]
 dont.treat.eval <- eval[pi.hat.eval == 0]
 
 average_treatment_effect(cf, subset = treat.eval)
-#> estimate  std.err 
-#>      3.9      0.8
 average_treatment_effect(cf, subset = dont.treat.eval)
-#> estimate  std.err 
-#>      1.8      2.3
-
 plot(tree.depth1)
 
 
@@ -69,3 +60,14 @@ dont.treat.eval <- eval[pi.hat.eval == 0]
 average_treatment_effect(cf, subset = treat.eval)
 average_treatment_effect(cf, subset = dont.treat.eval)
 plot(tree.depth2)
+
+ate_grf <- average_treatment_effect(cf, subset = treat.eval)
+
+tibble(
+  treatments = c(0, 1),
+  regular_gain = c(NA, ate[["estimate"]]),
+  optimized_gain = c(NA, ate_grf[["estimate"]])
+)
+
+get_scores(cf)
+predict(cf)$prediction
